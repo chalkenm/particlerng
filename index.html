@@ -231,96 +231,44 @@
         };
 
         let currentAura = null;
-        let inventory = [];  // In-memory storage instead of localStorage
+        let inventory = []; // Inventory loaded from localStorage
         let isRolling = false;
 
-        function generatePattern(config) {
-            return Array.from({ length: config.particleCount }).map(() => ({
-                angle: Math.random() * Math.PI * 2,
-                radius: Math.random() * 0.5 + 0.5,
-                speed: (Math.random() * 0.5 + 0.75) * config.speed,
-                phase: Math.random() * Math.PI * 2,
-                radiusVariation: Math.random() * 0.2,
-                hue: Math.random() * 360
-            }));
+        // Load inventory and current aura from localStorage
+        function loadState() {
+            const savedInventory = localStorage.getItem('auraInventory');
+            const savedCurrentAura = localStorage.getItem('currentAura');
+
+            inventory = savedInventory ? JSON.parse(savedInventory) : [];
+            currentAura = savedCurrentAura ? JSON.parse(savedCurrentAura) : null;
+
+            updateInventoryDisplay();
+            displayCurrentAura();
         }
 
-        function createAuraContainer(config, rarity, pattern, size = 'large', isExploding = false) {
-            const container = document.createElement('div');
-            container.className = `aura-container ${size}`;
-
-            const label = document.createElement('div');
-            label.className = `aura-label ${size}`;
-            label.textContent = rarity.toUpperCase();
-            label.style.opacity = isExploding ? '0' : '1';
-            container.appendChild(label);
-
-            pattern.forEach((particlePattern, i) => {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.width = `${config.size}px`;
-                particle.style.height = `${config.size}px`;
-                
-                if (isExploding) {
-                    particle.style.left = `${config.radius}px`;
-                    particle.style.top = `${config.radius}px`;
-                    particle.style.transform = 'scale(0)';
-                    particle.style.opacity = '0';
-                    
-                    setTimeout(() => {
-                        particle.style.transform = 'scale(1)';
-                        particle.style.opacity = '1';
-                        startParticleAnimation(particle, config, particlePattern);
-                    }, i * 20);
-                } else {
-                    particle.style.transform = 'scale(1)';
-                    particle.style.opacity = '1';
-                    startParticleAnimation(particle, config, particlePattern);
-                }
-
-                container.appendChild(particle);
-            });
-
-            return container;
+        function saveState() {
+            localStorage.setItem('auraInventory', JSON.stringify(inventory));
+            localStorage.setItem('currentAura', JSON.stringify(currentAura));
         }
 
-        function startParticleAnimation(particle, config, pattern) {
-            let hue = pattern.hue;
-            
-            const animate = () => {
-                const time = Date.now() / 1000;
-                const wobbleRadius = config.radius * pattern.radius + 
-                    Math.sin(time + pattern.phase) * pattern.radiusVariation * config.radius;
-                const angle = pattern.angle + time * pattern.speed;
+        function displayCurrentAura() {
+            const currentAuraDiv = document.getElementById('currentAura');
+            currentAuraDiv.innerHTML = '';
 
-                const x = Math.cos(angle) * wobbleRadius + config.radius;
-                const y = Math.sin(angle) * wobbleRadius + config.radius;
-
-                particle.style.left = `${x}px`;
-                particle.style.top = `${y}px`;
-
-                if (config.color === 'rainbow') {
-                    hue = (hue + 1) % 360;
-                    particle.style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
-                    particle.style.boxShadow = `hsl(${hue}, 100%, 50%) ${config.glow}`;
-                } else if (config.isStarlight) {
-                    const opacity = Math.random() * 0.5 + 0.5;
-                    particle.style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
-                    particle.style.boxShadow = `rgba(255, 255, 255, ${opacity}) ${config.glow}`;
-                } else {
-                    particle.style.backgroundColor = config.color;
-                    particle.style.boxShadow = `${config.color} ${config.glow}`;
-                }
-
-                requestAnimationFrame(animate);
-            };
-
-            animate();
+            if (currentAura) {
+                const { config, rarity, pattern } = currentAura;
+                currentAuraDiv.appendChild(
+                    createAuraContainer(config, rarity, pattern, 'large', false)
+                );
+                document.getElementById('keepButton').disabled = false;
+            } else {
+                document.getElementById('keepButton').disabled = true;
+            }
         }
 
         function rollAura() {
             if (isRolling) return;
-            
+
             isRolling = true;
             document.getElementById('rollButton').disabled = true;
             document.getElementById('keepButton').disabled = true;
@@ -347,16 +295,11 @@
                 pattern
             };
 
-            const currentAuraDiv = document.getElementById('currentAura');
-            currentAuraDiv.innerHTML = '';
-            currentAuraDiv.appendChild(
-                createAuraContainer(config, rarity, pattern, 'large', true)
-            );
+            displayCurrentAura();
 
             setTimeout(() => {
                 isRolling = false;
                 document.getElementById('rollButton').disabled = false;
-                document.getElementById('keepButton').disabled = false;
             }, 1000);
         }
 
@@ -364,18 +307,17 @@
             if (!currentAura || isRolling) return;
 
             inventory.push(currentAura);
-            
-            document.getElementById('currentAura').innerHTML = '';
-            document.getElementById('keepButton').disabled = true;
             currentAura = null;
-            
+
+            saveState();
+            displayCurrentAura();
             updateInventoryDisplay();
         }
 
         function updateInventoryDisplay() {
             const inventoryCount = document.getElementById('inventoryCount');
             const inventoryGrid = document.getElementById('inventoryGrid');
-            
+
             inventoryCount.textContent = inventory.length;
             inventoryGrid.innerHTML = '';
 
@@ -386,6 +328,38 @@
             });
         }
 
+        function generatePattern(config) {
+            return Array.from({ length: config.particleCount }).map(() => ({
+                angle: Math.random() * Math.PI * 2,
+                radius: Math.random() * 0.5 + 0.5,
+                speed: (Math.random() * 0.5 + 0.75) * config.speed,
+                phase: Math.random() * Math.PI * 2,
+                radiusVariation: Math.random() * 0.2,
+                hue: Math.random() * 360
+            }));
+        }
+
+        function createAuraContainer(config, rarity, pattern, size = 'large') {
+            const container = document.createElement('div');
+            container.className = `aura-container ${size}`;
+
+            const label = document.createElement('div');
+            label.className = `aura-label ${size}`;
+            label.textContent = rarity.toUpperCase();
+            container.appendChild(label);
+
+            pattern.forEach(() => {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.width = `${config.size}px`;
+                particle.style.height = `${config.size}px`;
+                container.appendChild(particle);
+            });
+
+            return container;
+        }
+
+        // Attach event listeners
         document.getElementById('rollButton').addEventListener('click', rollAura);
         document.getElementById('keepButton').addEventListener('click', keepAura);
         document.getElementById('inventoryButton').addEventListener('click', () => {
@@ -394,8 +368,8 @@
             updateInventoryDisplay();
         });
 
-        // Initialize inventory display
-        updateInventoryDisplay();
+        // Load state on page load
+        loadState();
     </script>
 </body>
 </html>
