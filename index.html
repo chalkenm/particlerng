@@ -227,6 +227,24 @@
                 glow: "0px 0px 25px",
                 radius: 80,
                 isStarlight: true
+            },
+            mystical: {  // New rarity
+                color: "#bb44cc",
+                particleCount: 80,
+                speed: 3.5,
+                size: 6,
+                chance: 0.003,
+                glow: "0px 0px 30px",
+                radius: 80
+            },
+            divine: {  // New rarity
+                color: "#ff9a00",
+                particleCount: 100,
+                speed: 4,
+                size: 7,
+                chance: 0.001,
+                glow: "0px 0px 40px",
+                radius: 80
             }
         };
 
@@ -360,30 +378,23 @@
             }, 1000);
         }
 
-        function keepAura() {
-            if (!currentAura || isRolling) return;
-
-            inventory.push(currentAura);
+        function autoRoll() {
+            if (isRolling) return;
             
-            document.getElementById('currentAura').innerHTML = '';
+            isRolling = true;
+            document.getElementById('rollButton').disabled = true;
             document.getElementById('keepButton').disabled = true;
-            currentAura = null;
-            
-            updateInventoryDisplay();
-        }
 
-        function updateInventoryDisplay() {
-            const inventoryCount = document.getElementById('inventoryCount');
-            const inventoryGrid = document.getElementById('inventoryGrid');
-            
-            inventoryCount.textContent = inventory.length;
-            inventoryGrid.innerHTML = '';
-
-            inventory.forEach(aura => {
-                inventoryGrid.appendChild(
-                    createAuraContainer(aura.config, aura.rarity, aura.pattern, 'small')
-                );
-            });
+            let speed = 500;  // Starting speed
+            const interval = setInterval(() => {
+                rollAura();
+                speed = Math.max(150, speed - 50);  // Speed up, but not less than 150ms
+                if (currentAura && (currentAura.rarity === 'legendary' || currentAura.rarity === 'chroma' || currentAura.rarity === 'starlight' || currentAura.rarity === 'divine')) {
+                    clearInterval(interval);
+                    document.getElementById('rollButton').disabled = false;
+                    document.getElementById('keepButton').disabled = false;
+                }
+            }, speed);
         }
 
         document.getElementById('rollButton').addEventListener('click', rollAura);
